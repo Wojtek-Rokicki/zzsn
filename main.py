@@ -1,86 +1,97 @@
+import argparse
 import os
+import yaml
+from easydict import EasyDict
+from pathlib import Path
+from utils.load_config import Configuration
+from utils.generate_synthetic_dataset import generate_dataset
+import pprint
+import wandb
 import numpy as np
-import logging
 
-def create_graphs_from_data(sparse_adjacency, graph_identifiers):
-    ''' Creates graphs as array of adjacency matrices
-    
-    Returns:
-        graphs: List of lists containing adjacency matrices
-        [[[1, 0, ..., 0],
-          [0, 0, ..., 0],
-                ...
-          [0, 0, ..., 0]],
-          ...
-          [[1, 0, ..., 0],
-          [0, 0, ..., 0],
-                ...
-          [0, 0, ..., 0]]
-        ]
-    '''
-
-    # Create list of graph nodes
-    graph_nodes = []
-    all_graphs_nodes = []
-    prev_graph_id = 1
-    for node, graph_id in enumerate(graph_identifiers):
-        if int(graph_id) == prev_graph_id:
-            graph_nodes.append(node+1)
-        else:
-            all_graphs_nodes.append(graph_nodes)
-            graph_nodes = [node+1]
-            prev_graph_id = int(graph_id)
-    all_graphs_nodes.append(graph_nodes)
-
-    # Create list of adjacency matrices of graphs
-    graphs = []
-    edges_done = 0
-    for graph_nodes in all_graphs_nodes:
-        graph = np.zeros((len(graph_nodes), len(graph_nodes)))
-        reference_for_indices = min(graph_nodes)
-        for edge in sparse_adjacency[edges_done:]:
-            nodes = edge.split(',')
-            if int(nodes[0]) in graph_nodes:
-                graph[int(nodes[0])-reference_for_indices][int(nodes[1])-reference_for_indices] = 1
-                edges_done += 1
-            else:
-                break
-        graphs.append(graph)
-
-    return np.array(graphs)
-
-def load_data(dataset_name):
-    ''' Reads whole dataset files
-    
-    Returns:
-        sparse_adjacency_file: list of lines - strings
-        graph_identifiers_file: list of lines - strings
-    '''
-    cwd_path = os.getcwd()
-    if dataset_name == "imdb-binary":
-        dataset_A_path = 'data/IMDB-BINARY/IMDB-BINARY_A.txt'
-        dataset_indicator_path = 'data/IMDB-BINARY/IMDB-BINARY_graph_indicator.txt'
-    elif dataset_name == "imdb-multi":
-        dataset_A_path = 'data/IMDB-MULTI/IMDB-MULTI_A.txt'
-        dataset_indicator_path = 'data/MULTI-BINARY/IMDB-MULTI_graph_indicator.txt'
-    elif dataset_name == "collab":
-        dataset_A_path = 'data/COLLAB/COLLAB_A.txt'
-        dataset_indicator_path = 'data/COLLAB/COLLAB_graph_indicator.txt' 
-    
-    with open(os.path.join(cwd_path, dataset_A_path), 'r') as sparse_adjacency_file, \
-        open(os.path.join(cwd_path, dataset_indicator_path), 'r') as  graph_identifiers_file:
-        sparse_adjacency = sparse_adjacency_file.read()
-        graph_identifiers = graph_identifiers_file.read()
-
-    return sparse_adjacency.strip().split('\n'), graph_identifiers.strip().split('\n')
+from utils.dataloaders_utils import prepare_dataloaders, read_dataset_graphs
 
 
-if __name__ == "__main__":
-    datasets = ["imdb-binary", "imdb-multi", "collab"]
+def parse_args():
+    """
+    Parse args for the main function
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, help='Number of epoch', default=10000)
+    parser.add_argument('--batch-size', type=int, help='Size of a batch', default=128)
+    parser.add_argument('--lr', type=float, default=2e-4)
+    parser.add_argument('--gpu', type=int, help='Id of gpu device. By default use cpu')
+    parser.add_argument('--weight_decay', type=float, default=0)
+    parser.add_argument('--wandb', action='store_true', help="Use the weights and biases library")
+    parser.add_argument('--name', type=str)
+    parser.add_argument('--evaluate-every', type=int, default=100)
+    parser.add_argument('--plot-every', type=int, default=-1)
+    parser.add_argument('--factor', type=float, default=0.5, help="Learning rate decay for the scheduler")
+    parser.add_argument('--patience', type=int, default=750, help="Scheduler patience")
+    parser.add_argument('--data-dir', type=str, default='./data/')
+    parser.add_argument('--runs', type=int, default=1, help="Number of runs to average")
+    parser.add_argument('--generator', type=str, choices=['random', 'first', 'top', 'mlp'], default="top")
+    parser.add_argument('--modulation', type=str, choices=['add', 'film'], default="film")
+    args = parser.parse_args()
+    return args
 
-    # for dataset in datasets:
-    #     sparse_adjacency, graph_identifiers = load_data(dataset)
-    #     graphs = create_graphs_from_data(sparse_adjacency, graph_identifiers)
 
-    sparse_adjacency, graph_identifiers = load_data(datasets[0])
-    graphs = create_graphs_from_data(sparse_adjacency, graph_identifiers)
+def main():
+
+    args = parse_args()
+
+    root_dir = Path(__file__).parent.resolve()
+    model_config_path = root_dir.joinpath("config", 'model_config.yaml')
+
+    # Changes in CUDA_VISIBLE_DEVICES must be done before loading pytorch
+    if type(args.gpu) == int:
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+        args.gpu = 0
+
+    with model_config_path.open() as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+        config = EasyDict(config)
+
+    if args.generator == 'top':
+        config["SetGenerator"]['name'] = "TopNGenerator"
+    elif args.generator == 'first':
+        config["SetGenerator"]['name'] = "FirstKGenerator"
+    elif args.generator == 'random':
+        config["SetGenerator"]['name'] = "RandomGenerator"
+    elif args.generator == 'mlp':
+        config["SetGenerator"]['name'] = "MLPGenerator"
+    else:
+        raise ValueError("Unknown generator")
+
+    config['Decoder']['modulation'] = '+' if args.modulation == 'add' else 'film'
+
+    # Create a name for weights and biases
+    if args.name:
+        args.wandb = True
+    if args.name is None:
+        args.name = config["SetGenerator"]['name']
+
+    # DO NOT MOVE THIS IMPORT
+    import train_test
+    pprint.pprint(config)
+
+    wandb_config = config.copy()
+
+    config["Global"]['dataset_max_n'] = 0 # TODO: maksymalna ilość węzłów
+    config = Configuration(config)
+
+    for i in range(args.runs):
+        wandb.init(project="set_gen", config=wandb_config, name=f"{args.name}_{i}",
+                   settings=wandb.Settings(_disable_stats=True), reinit=True,
+                   mode='online' if args.wandb else 'disabled')
+        wandb.config.update(args)
+
+        datasets = ["imdb-binary", "imdb-multi", "collab"]
+        for dataset in datasets:
+            read_dataset_graphs(dataset)
+            train_dataloader, test_dataloader = prepare_dataloaders(args.batch_size)
+            train_test.train(args, config, train_dataloader, test_dataloader, wandb)
+
+
+if __name__ == '__main__':
+    main()
