@@ -18,7 +18,7 @@ class EncoderConfig(object):
         encoder = config["Encoder"]
         glob = config["Global"]
 
-        self.in_dim = 3
+        self.in_dim = 136
         self.initial_mlp_layers = encoder['initial_mlp_layers']
         self.hidden_initial = encoder['hidden_initial']
 

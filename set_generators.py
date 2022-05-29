@@ -31,18 +31,14 @@ class SetGenerator(nn.Module):
         self.set_channels = cfg.set_channels
 
         self.learn_from_latent = cfg.learn_from_latent
-        self.predict_molecular_formula = cfg.predict_molecular_formula
 
         self.n_distribution = cfg.n_distribution
-        self.n_probs = cfg.n_prob
         self.max_n = cfg.max_n
         self.extrapolation_n = cfg.extrapolation_n
         self.dataset_max_n = cfg.dataset_max_n
         self.dummy_param = nn.Parameter(torch.empty(0))     # Used to store the device
         if self.learn_from_latent:
             self.mlp1 = MLP(self.latent_channels, 1, cfg.hidden, cfg.num_mlp_layers)
-        if self.predict_molecular_formula:
-            self.mlp2 = MLP(self.latent_channels, cfg.num_atom_types, cfg.hidden, cfg.num_mlp_layers)
 
     def forward(self, latent: Tensor, n: int = None, extrapolation=False):
         """ A set generator returns a latent set with n nodes and set_channels features.
@@ -53,9 +49,9 @@ class SetGenerator(nn.Module):
         predicted_n = self.mlp1(latent).squeeze(1) + average_n if (self.learn_from_latent and n is not None) else None
         if n is None:
             n = self.generate_n(latent, extrapolation)
-        predicted_formula = torch.softmax(self.mlp2(latent), dim=1) if self.predict_molecular_formula else None
 
-        return n, predicted_n, predicted_formula
+
+        return n, predicted_n
 
     def generate_n(self, z: Tensor = None, extrapolation = False):
         n = self.mlp1(z) + average_n if self.learn_from_latent else torch.multinomial(self.n_probs, num_samples=1)
@@ -72,11 +68,11 @@ class MLPGenerator(SetGenerator):
 
     def forward(self, latent: Tensor, n: int = None, extrapolation=False):
         batch_size = latent.shape[0]
-        n, predicted_n, predicted_formula = super().forward(latent, n, extrapolation)
+        n, predicted_n = super().forward(latent, n, extrapolation)
 
         points = self.mlp(latent).reshape(batch_size, self.max_n, self.set_channels)
         points = points[:, :n, :]
-        return points, predicted_n, predicted_formula
+        return points, predicted_n
 
 
 class RandomSetGenerator(SetGenerator):
@@ -115,8 +111,8 @@ class TopNSetGenerator(SetGenerator):
 
         self.angle_mlp = MLP(cfg.latent_dim, self.cosine_channels, 32, 2)
 
-        if self.predict_molecular_formula:
-            self.mlp2 = MLP(self.cosine_channels, cfg.num_atom_types, cfg.hidden, cfg.num_mlp_layers)
+        # if self.predict_molecular_formula:
+        #     self.mlp2 = MLP(self.cosine_channels, cfg.num_atom_types, cfg.hidden, cfg.num_mlp_layers)
 
         self.lin1 = nn.Linear(1, cfg.set_channels)
         self.lin2 = nn.Linear(1, cfg.set_channels)
@@ -125,7 +121,7 @@ class TopNSetGenerator(SetGenerator):
         """ latent: batch_size x d
             self.points: max_points x d"""
         batch_size = latent.shape[0]
-        n, predicted_n, predicted_formula = super().forward(latent, n, extrapolation)
+        n, predicted_n = super().forward(latent, n, extrapolation)
 
         angles = self.angle_mlp(latent)
         angles = angles / (torch.norm(angles, dim=1)[:, None] + 1e-5)
@@ -144,5 +140,5 @@ class TopNSetGenerator(SetGenerator):
         alpha = self.lin1(selected_points.shape[1] * srted[:, :, None])
         beta = self.lin2(selected_points.shape[1] * srted[:, :, None])
         modulated = alpha * selected_points + beta
-        return modulated, predicted_n, predicted_formula
+        return modulated, predicted_n
 

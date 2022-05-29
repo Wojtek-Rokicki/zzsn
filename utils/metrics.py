@@ -38,6 +38,8 @@ def chamfer_loss(set1: Tensor, set2: Tensor) -> torch.Tensor:
 def hungarian_loss(set1, set2) -> torch.Tensor:
     """ set1, set2: (bs, N, 3)"""
     check_size(set1, set2)
+    set1=set1.type(torch.float32)
+    set2=set2.type(torch.float32)
     batch_dist = torch.cdist(set1, set2, 2)
     numpy_batch_dist = batch_dist.detach().cpu().numpy()            # bs x n x n
     numpy_batch_dist[np.isnan(numpy_batch_dist)] = 1e6
@@ -70,12 +72,12 @@ class VAELoss(nn.Module):
         Returns:
             The variational loss computed as the sum of the hungarian loss and the Kullback-Leiber divergence.
         """
-        output_set, formula, bond_types = output
-
+        output_set = output[0]
+        
         bs, n, _ = output_set.shape
 
         device = output_set.device
-        real_set, real_atom_types, real_bond_types = real
+        real_set = real
 
 
         real_n = float(real_set.shape[1]) * torch.ones(real_set.shape[0], dtype=torch.float32).to(device)

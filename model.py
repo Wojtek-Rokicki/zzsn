@@ -67,9 +67,9 @@ class CustomEncoder(nn.Module):
         aggregated_dim = self.pooling.dim_multiplier * hidden
         self.final_mlp = MLP(aggregated_dim, 2 * self.latent_dim, cfg.hidden_final, cfg.final_mlp_layers)
 
-    def forward(self, x, atom_types):
+    def forward(self, x):
         """ x (Tensor): batch_size x n x in_channels. """
-        x = F.relu(self.initial_mlp(x, atom_types))
+        x = F.relu(self.initial_mlp(x))
         if self.use_bn:
             x = self.bn_layers[0](x.transpose(1, 2)).transpose(1, 2)  # bs, n, hidden
         for i in range(len(self.encoder_layers)):
@@ -104,7 +104,7 @@ class CustomDecoder(nn.Module):
             if self.use_bn:
                 self.bn_layers.append(nn.BatchNorm1d(hidden))
 
-        self.final_mlp = MLP(hidden, 3, hidden_final, cfg.final_mlp_layers)
+        self.final_mlp = MLP(hidden, 136, hidden_final, cfg.final_mlp_layers)
 
     def forward(self, x, latent):
         """ x: batch_size, n, channels
@@ -132,16 +132,16 @@ class SetTransformerVae(nn.Module):
         self.decoder = CustomDecoder(config.decoder_config)
         self.normal = torch.distributions.normal.Normal(0.0, 1.0)
 
-    def forward(self, x, atom_types, bond_types):
+    def forward(self, x):
         """ x: bs, n, channels.
             atom_types: bs, n, num_atom_types
             bond_types: bs, n, n, num_bond_types."""
         n = x.shape[1]
-        latent_mean, log_var = self.encoder(x, atom_types)
+        latent_mean, log_var = self.encoder(x)
         latent_vector = self.reparameterize(latent_mean, log_var)
-        x, predicted_n, predicted_formula = self.set_generator(latent_vector, n)
+        x, predicted_n = self.set_generator(latent_vector, n)
         out = self.decoder(x, latent_vector)
-        out = [out, predicted_formula, None]
+        out = [out, None]
         return [out, latent_mean, log_var, predicted_n]
 
     def generate(self, device, extrapolation: bool):
@@ -149,15 +149,15 @@ class SetTransformerVae(nn.Module):
         x, _, _ = self.set_generator(latent_vec, n=None, extrapolation=extrapolation)
         return self.decoder(x, latent_vec)
 
-    def reconstruct(self, x, atom_types, bond_types):
+    def reconstruct(self, x):
         """ x: bs, n, channels.
             atom_types: bs, n, num_atom_types
             bond_types: bs, n, n, num_bond_types."""
         n = x.shape[1]
-        latent_mean, log_var = self.encoder(x, atom_types)
-        x, predicted_n, predicted_formula = self.set_generator(latent_mean, n)
+        latent_mean, log_var = self.encoder(x)
+        x, predicted_n = self.set_generator(latent_mean, n)
         out = self.decoder(x, latent_mean)
-        out = [out, predicted_formula, None]
+        out = [out, None]
         return [out, latent_mean, None, predicted_n]
 
     @staticmethod

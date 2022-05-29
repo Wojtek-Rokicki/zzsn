@@ -30,7 +30,7 @@ Encoder:
 SetGenerator:
   name: None
   learn_from_latent: False
-  max_n: 35
+  max_n: 136
   n_distribution: None
   num_mlp_layers: 2
   hidden: 32

@@ -1,75 +1,47 @@
-import os
-import os.path as osp
-
-import numpy as np
-import numpy.random as npr
+import sys
 import torch
-import yaml
-from easydict import EasyDict
-import shutil
-from sklearn.preprocessing import OneHotEncoder
-from torch.utils.data import (BatchSampler, DataLoader, Dataset, Sampler,
-                              SequentialSampler)
-import argparse
-from pathlib import Path
+from torch.utils.data import (BatchSampler, DataLoader, Dataset, SequentialSampler)
 
-def split_graph(dataset_path,split_ratio):
+sys.path.append('../')
+from global_const import *
 
-    dataset = np.load(dataset_path)
+def split_dataset(dataset, config):
     lenght = len(dataset)
-    lenght *=split_ratio
-    training_file = dataset[:lenght]
-    test_file = dataset[lenght:]
+    lenght = int(config['Data']['train_ratio']*lenght)
+    train_data = dataset[:lenght]
+    test_data = dataset[lenght:]
 
-    np.save(path,training_file,allow_pickle=True)
-    np.save(path,test_file,allow_pickle=True)
+    return train_data, test_data
 
+def prepare_dataloaders(train_standarized_graphs, train_split_indices, test_standarized_graphs, test_split_indices):
+    ''' Sending data to loaders.
 
-def prepare_dataloaders(batch_size):
-    # Load dataset
-    # https://www.scottcondron.com/jupyter/visualisation/audio/2020/12/02/dataloaders-samplers-collate.html#Samplers
-   
-    train_dataset = ConstrainedDataset(train_data_path)
-    test_dataset = ConstrainedDataset(test_data_path)
-    train_loader = SyntheticDataLoader(train_dataset, batch_size=batch_size)
-    test_loader = SyntheticDataLoader(test_dataset, batch_size=batch_size)
+        Returns:
+            train_loader: GraphDataLoader
+            test_loader: GraphDataLoader
+    '''
+    train_dataset = ConstrainedDataset(train_standarized_graphs, train_split_indices)
+    test_dataset = ConstrainedDataset(test_standarized_graphs, test_split_indices)
+    # Batches are infered from train_dataset dimensions (batch_size will be equal to max_size of graph)
+    train_loader = GraphDataLoader(train_dataset)
+    test_loader = GraphDataLoader(test_dataset)
+    
     return train_loader, test_loader
 
 class ConstrainedDataset(Dataset):
-    def __init__(self, filepath, transform=None):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        self.filepath = filepath
-        self.transform = transform
-
-        all_data = np.load(filepath) # węzły z id grafu
-        points = all_data[:, :-1].astype(np.float32) # bez oznaczenia przynależności do grafu
-        batch = all_data[:, -1] # przynależność do grafu
-        data_list = np.split(points, np.unique(batch, return_index=True)[1][1:]) # unique zwraca liste unikalnych, indeks pierwszego wystąpienia unikalnej wartości; split dzieli wg indeksów przekazanych jako drugi parametr
-        # Sort the data list by size; data list - lista grafów
-        lengths = [s.shape[0] for s in data_list]
-        argsort = np.argsort(lengths)
-        self.data_list = [data_list[i] for i in argsort]
-        # Store indices where the size changes
-        self.split_indices = np.unique(np.sort(lengths), return_index=True)[1][1:]
+    def __init__(self, dataset, split_indices):
+        self.dataset = dataset
+        self.split_indices = split_indices
 
     def __len__(self):
-        return len(self.data_list)
-    # zwraca graf pod indexem
+        return len(self.dataset)
+
+    # Gets graphs with indices
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
-        sample = self.data_list[idx]
-        if self.transform:
-            sample = self.transform(sample)
+        sample = self.dataset[idx]
         return sample
-
 
 class CustomBatchSampler(BatchSampler):
     r""" Creates batches where all sets have the same size
@@ -102,9 +74,10 @@ class CustomBatchSampler(BatchSampler):
         return count
 
 
-class SyntheticDataLoader(DataLoader):
-    def __init__(self, dataset, batch_size, drop_last=False):
+class GraphDataLoader(DataLoader):
+    def __init__(self, dataset, drop_last=False):
         data_source = dataset
+        max_size = dataset[0].shape[0]
         sampler = SequentialSampler(data_source) # zwraca indeksy elementów; może być używany do zmiany kolejności
-        batch_sampler = CustomBatchSampler(sampler, batch_size, drop_last, dataset.split_indices)
+        batch_sampler = CustomBatchSampler(sampler, max_size, drop_last, dataset.split_indices)
         super().__init__(dataset, batch_sampler=batch_sampler)

@@ -4,12 +4,11 @@ import yaml
 from easydict import EasyDict
 from pathlib import Path
 from utils.load_config import Configuration
-from utils.generate_synthetic_dataset import generate_dataset
 import pprint
 import wandb
-import numpy as np
 
-from utils.dataloaders_utils import prepare_dataloaders, read_dataset_graphs
+from utils.dataloaders_utils import prepare_dataloaders
+from utils.graphs_utils import get_standardized_graphs  
 
 
 def parse_args():
@@ -17,7 +16,7 @@ def parse_args():
     Parse args for the main function
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, help='Number of epoch', default=10000)
+    parser.add_argument('--epochs', type=int, help='Number of epoch', default=10)
     parser.add_argument('--batch-size', type=int, help='Size of a batch', default=128)
     parser.add_argument('--lr', type=float, default=2e-4)
     parser.add_argument('--gpu', type=int, help='Id of gpu device. By default use cpu')
@@ -80,16 +79,24 @@ def main():
     config["Global"]['dataset_max_n'] = 0 # TODO: maksymalna ilość węzłów
     config = Configuration(config)
 
+    data_config_path = root_dir.joinpath("config", 'data_config.yaml')    
+    with data_config_path.open() as f:
+        data_config = yaml.load(f, Loader=yaml.FullLoader)
+        data_config = EasyDict(data_config)
+
     for i in range(args.runs):
         wandb.init(project="set_gen", config=wandb_config, name=f"{args.name}_{i}",
                    settings=wandb.Settings(_disable_stats=True), reinit=True,
                    mode='online' if args.wandb else 'disabled')
         wandb.config.update(args)
 
-        datasets = ["imdb-binary", "imdb-multi", "collab"]
+        # datasets = ["imdb-binary", "imdb-multi", "collab"]
+        datasets = ["imdb-binary"]
+        
         for dataset in datasets:
-            read_dataset_graphs(dataset)
-            train_dataloader, test_dataloader = prepare_dataloaders(args.batch_size)
+            ## Training Files            
+            train_standarized_graphs, train_split_indices, test_standarized_graphs, test_split_indices = get_standardized_graphs(dataset, data_config)
+            train_dataloader, test_dataloader = prepare_dataloaders(train_standarized_graphs, train_split_indices, test_standarized_graphs, test_split_indices)
             train_test.train(args, config, train_dataloader, test_dataloader, wandb)
 
 

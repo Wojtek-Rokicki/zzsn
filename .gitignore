@@ -1,3 +1,5 @@
 __pycache__/
 data/
 graphs_data/
+tests.py
+.vscode/
