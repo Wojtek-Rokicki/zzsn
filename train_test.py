@@ -8,13 +8,14 @@ from utils.log_utils import log_train_metrics, log_test_metrics, log_evaluation_
 from utils.plot_utils import plot_reconstruction, plot_generated_sets
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch import nn
 # from torchmetrics import F1score,Precision,Recall
 random.seed(123)
 torch.manual_seed(123)
 np.random.seed(123)
 
 
-def train(args, config, train_loader, test_loader, wandb):
+def train(args, config,dataset_config, train_loader, test_loader, wandb):
     use_cuda = args.gpu is not None and torch.cuda.is_available()
     if use_cuda:
         device = torch.device("cuda:" + str(args.gpu))
@@ -30,6 +31,7 @@ def train(args, config, train_loader, test_loader, wandb):
     model = SetTransformerVae(config).to(device)
     # TODO: Adjust loss function for our case
     loss_fct = HungarianVAELoss(config.glob.lmbdas, config.set_generator_config.learn_from_latent) ## BSELoss
+    # loss_fct = nn.BCELoss()
     optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, factor=args.factor, patience=args.patience, min_lr=1e-6)
     # wandb.watch(model, log_freq=100)
@@ -75,10 +77,6 @@ def train(args, config, train_loader, test_loader, wandb):
             generated =[model.generate(device, extrapolation=False) for i in range(config.glob.n_eval)]
             losses = constrained_loss(generated, dataset_config)
             log_evaluation_metrics(args, losses, epoch, wandb, extrapolation=False)
-        with torch.no_grad():
-            generated = [model.generate(device, extrapolation=True) for i in range(config.glob.n_eval)]
-            losses = constrained_loss(generated, dataset_config)
-            log_evaluation_metrics(args, losses, epoch, wandb, extrapolation=True)
 
     # Train
     for epoch in range(0, args.epochs):
@@ -100,7 +98,7 @@ def train(args, config, train_loader, test_loader, wandb):
                 generated = [model.generate(device) for i in range(10)]
             plot_generated_sets(generated, f"gen_{args.name}_epoch{epoch}", num_prints=10, folder='./plots')
 
-        if epoch % 1000 == 0:
+        if epoch % 5 == 0:
             if hasattr(model.set_generator, "points"):
                 np.set_printoptions(precision=3, suppress=True)
                 print(model.set_generator.points.detach().cpu().numpy())

@@ -146,7 +146,7 @@ class SetTransformerVae(nn.Module):
 
     def generate(self, device, extrapolation: bool):
         latent_vec = self.normal.sample(torch.Size([self.latent_dim])).float().unsqueeze(0).to(device) ## zwraca tensor
-        x, _, _ = self.set_generator(latent_vec, n=None, extrapolation=extrapolation)
+        x, _ = self.set_generator(latent_vec, n=None, extrapolation=extrapolation)
         return self.decoder(x, latent_vec)
 
     def reconstruct(self, x):

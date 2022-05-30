@@ -73,8 +73,8 @@ def load_data(dataset_name):
         dataset_indicator_path = 'data/COLLAB/COLLAB_graph_indicator.txt' 
         
     
-    with open(os.path.join(cwd_path, dataset_A_path), 'r') as sparse_adjacency_file, \
-        open(os.path.join(cwd_path, dataset_indicator_path), 'r') as  graph_identifiers_file:
+    with open(os.path.join(ROOT_DIR, dataset_A_path), 'r') as sparse_adjacency_file, \
+        open(os.path.join(ROOT_DIR, dataset_indicator_path), 'r') as  graph_identifiers_file:
         sparse_adjacency = sparse_adjacency_file.read()
         graph_identifiers = graph_identifiers_file.read()
 
@@ -83,6 +83,7 @@ def load_data(dataset_name):
 
 def generate_dataset_graphs(dataset):
     path = ROOT_DIR.joinpath("graphs_data", f'{dataset}')
+    path=str(path)
     sparse_adjacency, graph_identifiers = load_data(dataset)
     if not os.path.exists(path + '.npy'):
         graphs = create_graphs_from_data(sparse_adjacency, graph_identifiers)

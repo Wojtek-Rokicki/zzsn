@@ -16,9 +16,9 @@ def parse_args():
     Parse args for the main function
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, help='Number of epoch', default=10)
+    parser.add_argument('--epochs', type=int, help='Number of epoch', default=100)
     parser.add_argument('--batch-size', type=int, help='Size of a batch', default=128)
-    parser.add_argument('--lr', type=float, default=2e-4)
+    parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--gpu', type=int, help='Id of gpu device. By default use cpu')
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--wandb', action='store_true', help="Use the weights and biases library")
@@ -81,7 +81,7 @@ def main():
         data_config = yaml.load(f, Loader=yaml.FullLoader)
         data_config = EasyDict(data_config)
 
-    config["Global"]['dataset_max_n'] = 0
+    config["Global"]['dataset_max_n'] = 136
     config = Configuration(config)
 
     for i in range(args.runs):
@@ -97,7 +97,7 @@ def main():
             ## Training Files            
             train_standarized_graphs, test_standarized_graphs = get_standardized_graphs(dataset, data_config)
             train_dataloader, test_dataloader = prepare_dataloaders(train_standarized_graphs, test_standarized_graphs, data_config)
-            train_test.train(args, config, train_dataloader, test_dataloader, wandb)
+            train_test.train(args, config,data_config, train_dataloader, test_dataloader, wandb)
 
 
 if __name__ == '__main__':

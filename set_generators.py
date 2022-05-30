@@ -124,11 +124,11 @@ class TopNSetGenerator(SetGenerator):
 
         angles = self.angle_mlp(latent)
         angles = angles / (torch.norm(angles, dim=1)[:, None] + 1e-5)
-
         cosine = (self.angles_params[None, ...] @ angles[:, :, None]).squeeze(dim=2)
         cosine = torch.softmax(cosine, dim=1)
         # cosine = cosine / (torch.norm(set_angles, dim=1)[None, ...] + 1)        # 1 is here to avoid instabilities
         # Shape of cosine: bs x max_points
+
         srted, indices = torch.topk(cosine, n, dim = 1, largest = True, sorted = True)  # bs x n
 
         indices = indices[:, :, None].expand(-1, -1, self.points.shape[-1])  # bs, n, set_c
