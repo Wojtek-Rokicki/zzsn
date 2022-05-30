@@ -76,13 +76,13 @@ def main():
 
     wandb_config = config.copy()
 
-    config["Global"]['dataset_max_n'] = 0 # TODO: maksymalna ilość węzłów
-    config = Configuration(config)
-
     data_config_path = root_dir.joinpath("config", 'data_config.yaml')    
     with data_config_path.open() as f:
         data_config = yaml.load(f, Loader=yaml.FullLoader)
         data_config = EasyDict(data_config)
+
+    config["Global"]['dataset_max_n'] = 0
+    config = Configuration(config)
 
     for i in range(args.runs):
         wandb.init(project="set_gen", config=wandb_config, name=f"{args.name}_{i}",
@@ -95,8 +95,8 @@ def main():
         
         for dataset in datasets:
             ## Training Files            
-            train_standarized_graphs, train_split_indices, test_standarized_graphs, test_split_indices = get_standardized_graphs(dataset, data_config)
-            train_dataloader, test_dataloader = prepare_dataloaders(train_standarized_graphs, train_split_indices, test_standarized_graphs, test_split_indices)
+            train_standarized_graphs, test_standarized_graphs = get_standardized_graphs(dataset, data_config)
+            train_dataloader, test_dataloader = prepare_dataloaders(train_standarized_graphs, test_standarized_graphs, data_config)
             train_test.train(args, config, train_dataloader, test_dataloader, wandb)
 
 

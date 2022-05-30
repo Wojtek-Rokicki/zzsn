@@ -8,7 +8,7 @@ from utils.log_utils import log_train_metrics, log_test_metrics, log_evaluation_
 from utils.plot_utils import plot_reconstruction, plot_generated_sets
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+# from torchmetrics import F1score,Precision,Recall
 random.seed(123)
 torch.manual_seed(123)
 np.random.seed(123)
@@ -29,7 +29,7 @@ def train(args, config, train_loader, test_loader, wandb):
     # Define model, loss, optimizer
     model = SetTransformerVae(config).to(device)
     # TODO: Adjust loss function for our case
-    loss_fct = HungarianVAELoss(config.glob.lmbdas, config.set_generator_config.learn_from_latent)
+    loss_fct = HungarianVAELoss(config.glob.lmbdas, config.set_generator_config.learn_from_latent) ## BSELoss
     optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, factor=args.factor, patience=args.patience, min_lr=1e-6)
     # wandb.watch(model, log_freq=100)
@@ -37,7 +37,7 @@ def train(args, config, train_loader, test_loader, wandb):
     def train_epoch(epoch: int):
         model.train()
         losses = np.zeros(4)           # Train_loss, n_loss
-        for _, data in enumerate(train_loader): # data - zbiór o wielkości <= batch_size grafów o jednakowym wymiarze
+        for _, data in enumerate(train_loader): # data - ustandaryzowane grafy
             optimizer.zero_grad()
             data = data.to(device)
             output = model(data)
@@ -72,7 +72,7 @@ def train(args, config, train_loader, test_loader, wandb):
         model.eval()
         with torch.no_grad():
             # TODO: Fix generation
-            generated = [model.generate(device, extrapolation=False) for i in range(config.glob.n_eval)]
+            generated =[model.generate(device, extrapolation=False) for i in range(config.glob.n_eval)]
             losses = constrained_loss(generated, dataset_config)
             log_evaluation_metrics(args, losses, epoch, wandb, extrapolation=False)
         with torch.no_grad():
@@ -88,7 +88,7 @@ def train(args, config, train_loader, test_loader, wandb):
         scheduler.step(losses[0])
         if epoch % args.evaluate_every == 0:
             test()
-            #evaluate()
+            evaluate()
         if args.plot_every > 0 and epoch % args.plot_every == 0:
             for i, data in enumerate(train_loader):
                 data = data.to(device)

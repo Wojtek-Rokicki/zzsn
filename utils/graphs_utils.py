@@ -105,59 +105,43 @@ def read_dataset_graphs(dataset):
     all_graphs = np.load(path + '.npy', allow_pickle=True)
     return all_graphs
 
-
-def standardize_graphs(all_graphs,max_size=-1):
-    ''' Standardizes graphs along vertical shape
-
+def standardize_graphs(all_graphs, max_size=-1):
+    ''' Standarizes graphs by extending diagonal with padding margin
+        
         Returns:
-            List of graphs padded (to max_size of graph) along vertical shape with -1
-            [...,
-             [[1,0,0, ... , -1, -1, -1, 5],
-              [0,0,1, ... , -1, -1, -1, 5],
-              ... ,
-              [0,0,0, ... , -1, -1, -1, 5]],
-             [[1,0,0, ... , -1, -1, -1, 6],
-              [0,0,1, ... , -1, -1, -1, 6],
-              ... ,
-              [0,0,0, ... , -1, -1, -1, 6]],
-             ...
-            ]
-    
+            List of graphs standarized by diagonal margin padding to the max graph size
     '''
-    PADDING_VAL = -1
-
-    # # Tagging nodes with graph_id
-    # all_graphs = []
-    # for i, graph in enumerate(all_graphs): 
-    #     graph = np.hstack((graph, i * np.ones((graph.shape[0], 1))))  
-    #     all_graphs.append(graph)
+    PADDING_VAL = 0
 
     # Sorts graphs by size
     lengths = [g.shape[0] for g in all_graphs]
     argsort = np.argsort(lengths)
     all_graphs = [all_graphs[i] for i in argsort]
-
-    # Store indices where the size changes
-    split_indices = np.unique(np.sort(lengths), return_index=True)[1][1:]
     
     # Standardizing size of graphs
     if max_size == -1:
         max_size = all_graphs[-1].shape[0]
     else:
         max_size = max_size 
-        
+
     all_graphs_standardized = []
     for graph in all_graphs:
-        if (graph.shape[0]) < max_size:
-            diff_size = max_size - graph.shape[0]
-            horizontal_padding = np.ones((graph.shape[0], diff_size)) * PADDING_VAL
-            # row, tag = np.hsplit(graph, [-1])
-            # graph = np.hstack((row, horizontal_padding, tag))
-            graph = np.hstack((graph, horizontal_padding))
-        graph = graph.astype(np.float32)
-        all_graphs_standardized.append(graph)
+        # Zeroing left bottom half of symetric adjacency matrix
+        graph_size = graph.shape[0]
+        for i in range(graph_size):
+            for j in range(graph_size):
+                if i > j:
+                    graph[i, j] = 0
 
-    return all_graphs_standardized, split_indices, max_size
+        # Pasting triangle to the right top and left bottom corner
+        standardized_graph = np.zeros((max_size, max_size), dtype=np.float32)
+        standardized_graph[:(graph_size), (max_size - graph_size):] = graph # top right corner
+        graph = graph.transpose()
+        standardized_graph[(max_size - graph_size):, :(graph_size)] = graph ## down left corner
+        standardized_graph.astype('float32')
+        all_graphs_standardized.append(standardized_graph)
+
+    return all_graphs_standardized, max_size
 
 def get_standardized_graphs(dataset, config):
     path = ROOT_DIR.joinpath("standardized_graphs_data", f'{dataset}')
@@ -165,19 +149,15 @@ def get_standardized_graphs(dataset, config):
     if not os.path.exists(path + '.npy'):
         all_graphs = read_dataset_graphs(dataset)
         train_graphs, test_graphs = split_dataset(all_graphs, config)
-        # TODO: Ugly passing max_size of graph between train and test
-        train_standarized_graphs, train_split_indices, max_size = standardize_graphs(train_graphs)
-        test_standarized_graphs, test_split_indices, _ = standardize_graphs(test_graphs, max_size)
+        # TODO: Ugly passing max_size of graph between train and test, problem - what if test has max_size matrix
+        train_standarized_graphs, max_size = standardize_graphs(train_graphs)
+        test_standarized_graphs, _ = standardize_graphs(test_graphs, max_size)
         np.save(path + '_train.npy', train_standarized_graphs, allow_pickle=True)  
-        np.save(path + '_train_indices.npy', train_split_indices, allow_pickle=True) 
         np.save(path + '_test.npy', test_standarized_graphs, allow_pickle=True)
-        np.save(path + '_test_indices.npy', test_split_indices, allow_pickle=True)   
     else:
         train_standarized_graphs = np.load(path + '_train.npy')
-        train_split_indices = np.load(path + '_train_indices.npy')
         test_standarized_graphs = np.load(path + '_test.npy')
-        test_split_indices = np.load(path + '_test_indices.npy')
-    return train_standarized_graphs, train_split_indices, test_standarized_graphs, test_split_indices
+    return train_standarized_graphs, test_standarized_graphs
 
 
 if __name__ == "__main__":

@@ -50,11 +50,10 @@ class SetGenerator(nn.Module):
         if n is None:
             n = self.generate_n(latent, extrapolation)
 
-
         return n, predicted_n
 
     def generate_n(self, z: Tensor = None, extrapolation = False):
-        n = self.mlp1(z) + average_n if self.learn_from_latent else torch.multinomial(self.n_probs, num_samples=1)
+        n = self.mlp1(z) + average_n
         if extrapolation:
             n = n + self.extrapolation_n
         return round_n(n, self.dataset_max_n)
@@ -130,7 +129,7 @@ class TopNSetGenerator(SetGenerator):
         cosine = torch.softmax(cosine, dim=1)
         # cosine = cosine / (torch.norm(set_angles, dim=1)[None, ...] + 1)        # 1 is here to avoid instabilities
         # Shape of cosine: bs x max_points
-        srted, indices = torch.topk(cosine, n, dim=1, largest=True, sorted=True)  # bs x n
+        srted, indices = torch.topk(cosine, n, dim = 1, largest = True, sorted = True)  # bs x n
 
         indices = indices[:, :, None].expand(-1, -1, self.points.shape[-1])  # bs, n, set_c
         batched_points = self.points[None, :].expand(batch_size, -1, -1)  # bs, n_max, set_c
