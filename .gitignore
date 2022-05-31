@@ -3,3 +3,4 @@ data/
 graphs_data/
 tests.py
 .vscode/
+standardized_graphs_data/

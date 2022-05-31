@@ -1,17 +1,12 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-import torch.functional as F
 from scipy.optimize import linear_sum_assignment
 import numpy as np
-import numpy.random as npr
-import yaml
-import os.path as osp
-from easydict import EasyDict
 from torch import zeros
-from scipy.stats import wasserstein_distance
-from ot.lp import emd, emd2                 # Optimal transport solvers
 
+import warnings
+warnings.filterwarnings("ignore")
 
 def check_size(set1: Tensor, set2: Tensor):
     """ Args:
@@ -106,9 +101,29 @@ class ChamferVAELoss(VAELoss):
         super().__init__(chamfer_loss, *args)
 
 
-def constrained_loss(generated, config): 
-    """ TODO  MSE PRECISION, RECALL"""
-    loss_total = 0
+def adjacency_graph_metrics(pred_batched_matrices, true_batched_matrices):
+    '''
+        pred, matrix numpy ndarrays of size: batch_size x N x N
+    '''
 
-    return loss_total
+    tp = fp = fn = tn = 0
+    for pred_matrix,true_matrix in zip(pred_batched_matrices, true_batched_matrices):
+        for i in range(pred_matrix.shape[0]):
+            for j in range(pred_matrix.shape[1]):
+                if pred_matrix[i][j] == 0 and true_matrix[i][j] == 0:
+                    tn += 1
+                elif pred_matrix[i][j] == 1 and true_matrix[i][j] == 1:
+                    tp += 1
+                elif pred_matrix[i][j] == 1 and true_matrix[i][j] == 0:
+                    fp += 1
+                elif pred_matrix[i][j] == 0 and true_matrix[i][j] == 1:
+                    fn += 1
+                
+    accuracy = (tp+tn)/(tp+tn+fp+fn)
+    precision = tp/(tp+fp)
+    recall = tp/(tp+fn)
+    f1 = 2 * (precision * recall)/(precision + recall)
+    
+    return precision, recall, f1, accuracy
+
 

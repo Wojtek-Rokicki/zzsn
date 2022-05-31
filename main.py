@@ -6,24 +6,22 @@ from pathlib import Path
 from utils.load_config import Configuration
 import pprint
 import wandb
-
 from utils.dataloaders_utils import prepare_dataloaders
 from utils.graphs_utils import get_standardized_graphs  
-
 
 def parse_args():
     """
     Parse args for the main function
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, help='Number of epoch', default=100)
+    parser.add_argument('--epochs', type=int, help='Number of epoch', default=150)
     parser.add_argument('--batch-size', type=int, help='Size of a batch', default=128)
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--gpu', type=int, help='Id of gpu device. By default use cpu')
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--wandb', action='store_true', help="Use the weights and biases library")
     parser.add_argument('--name', type=str)
-    parser.add_argument('--evaluate-every', type=int, default=100)
+    parser.add_argument('--test-every', type=int, default=5)
     parser.add_argument('--plot-every', type=int, default=-1)
     parser.add_argument('--factor', type=float, default=0.5, help="Learning rate decay for the scheduler")
     parser.add_argument('--patience', type=int, default=750, help="Scheduler patience")
@@ -81,23 +79,25 @@ def main():
         data_config = yaml.load(f, Loader=yaml.FullLoader)
         data_config = EasyDict(data_config)
 
-    config["Global"]['dataset_max_n'] = 136
-    config = Configuration(config)
 
     for i in range(args.runs):
-        wandb.init(project="set_gen", config=wandb_config, name=f"{args.name}_{i}",
-                   settings=wandb.Settings(_disable_stats=True), reinit=True,
-                   mode='online' if args.wandb else 'disabled')
-        wandb.config.update(args)
 
         # datasets = ["imdb-binary", "imdb-multi", "collab"]
         datasets = ["imdb-binary"]
         
-        for dataset in datasets:
-            ## Training Files            
-            train_standarized_graphs, test_standarized_graphs = get_standardized_graphs(dataset, data_config)
+        for dataset in datasets:            
+            train_standarized_graphs, test_standarized_graphs, max_size = get_standardized_graphs(dataset, data_config)
             train_dataloader, test_dataloader = prepare_dataloaders(train_standarized_graphs, test_standarized_graphs, data_config)
-            train_test.train(args, config,data_config, train_dataloader, test_dataloader, wandb)
+            
+            config["Global"]['dataset_max_n'] = max_size
+            config["Global"]['set_channels'] = max_size
+            config["Global"]['cosine_channels'] = 4
+            config = Configuration(config)
+            wandb.init(project="set_gen", config=wandb_config, name=f"{args.name}_{i}",
+                   settings=wandb.Settings(_disable_stats=True), reinit=True,
+                   mode='online' if args.wandb else 'disabled')
+            wandb.config.update(args)
+            train_test.train(args, config, data_config, train_dataloader, test_dataloader, wandb)
 
 
 if __name__ == '__main__':

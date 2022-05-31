@@ -1,5 +1,4 @@
 
-
 def log_train_metrics(args, losses, lr, epoch, wandb, verbose=True):
     if verbose:
         print(f"Epoch {epoch}: Train loss: {losses[0]:.5f} | Train Hungarian: {losses[1]:.5f} | " +
@@ -21,13 +20,3 @@ def log_test_metrics(args, losses, epoch, wandb, verbose=True):
     if args.wandb:
         dic = {name: losses[i] for i, name in enumerate(["Test loss", "Test Hungarian loss", "Test N loss"])}
         wandb.log(dic)
-
-
-def log_evaluation_metrics(args, losses, epoch, wandb, extrapolation):
-    ext = 'Extrapolation ' if extrapolation else ""
-    print(f"Epoch {epoch}: {ext} Loss: {losses:.4f}")
-    
-    
-    if args.wandb:
-        wandb.log({f"{ext}Loss": losses})
-

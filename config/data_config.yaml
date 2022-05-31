@@ -3,5 +3,4 @@ Data:
   test_ratio: 0.2
   batch_size: 128
   extrapolation_n: 10
-  n_max: 136
   neighbor_threshold: 2

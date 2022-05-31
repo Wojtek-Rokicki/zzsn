@@ -2,18 +2,17 @@ import os
 import numpy as np
 import torch
 import random
-from utils.metrics import (HungarianVAELoss, constrained_loss)
+from utils.metrics import (HungarianVAELoss, adjacency_graph_metrics)
 from model import SetTransformerVae
-from utils.log_utils import log_train_metrics, log_test_metrics, log_evaluation_metrics
+from utils.log_utils import log_train_metrics, log_test_metrics
 from utils.plot_utils import plot_reconstruction, plot_generated_sets
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch import nn
-# from torchmetrics import F1score,Precision,Recall
+from utils.graphs_utils import normalize_output_graph
+
 random.seed(123)
 torch.manual_seed(123)
 np.random.seed(123)
-
 
 def train(args, config,dataset_config, train_loader, test_loader, wandb):
     use_cuda = args.gpu is not None and torch.cuda.is_available()
@@ -58,25 +57,21 @@ def train(args, config,dataset_config, train_loader, test_loader, wandb):
         model.eval()
         with torch.no_grad():
             losses = np.zeros(4)           # Train_loss, n_loss
-            for _, data in enumerate(test_loader):
+            for idx, data in enumerate(test_loader):
                 data = data.to(device)
                 output = model.reconstruct(data)
                 loss = loss_fct(*output, data)
                 losses += [l.item() / len(train_loader.dataset) for l in loss]
 
+                #### METRICS ######
+                normalized_output = normalize_output_graph(output[0][0])
+                precision, recall, f1, accuracy = adjacency_graph_metrics(normalized_output, data.numpy())   
+                print( f'Test batch {idx} -- Precision: {precision}, Recall: {recall}, F1:{f1}, Accuracy: {accuracy}')
+                
+            # Whole metrics of 
             log_test_metrics(args, losses, epoch, wandb, verbose=True)
+
             return losses
-
-
-    # TODO: Change evaluation for our case
-    def evaluate():
-        """ Check the constraints on the generated dataset """
-        model.eval()
-        with torch.no_grad():
-            # TODO: Fix generation
-            generated =[model.generate(device, extrapolation=False) for i in range(config.glob.n_eval)]
-            losses = constrained_loss(generated, dataset_config)
-            log_evaluation_metrics(args, losses, epoch, wandb, extrapolation=False)
 
     # Train
     for epoch in range(0, args.epochs):
@@ -84,9 +79,8 @@ def train(args, config,dataset_config, train_loader, test_loader, wandb):
             break
         losses = train_epoch(epoch)
         scheduler.step(losses[0])
-        if epoch % args.evaluate_every == 0:
+        if epoch % args.test_every == 0:
             test()
-            evaluate()
         if args.plot_every > 0 and epoch % args.plot_every == 0:
             for i, data in enumerate(train_loader):
                 data = data.to(device)
@@ -98,10 +92,4 @@ def train(args, config,dataset_config, train_loader, test_loader, wandb):
                 generated = [model.generate(device) for i in range(10)]
             plot_generated_sets(generated, f"gen_{args.name}_epoch{epoch}", num_prints=10, folder='./plots')
 
-        if epoch % 5 == 0:
-            if hasattr(model.set_generator, "points"):
-                np.set_printoptions(precision=3, suppress=True)
-                print(model.set_generator.points.detach().cpu().numpy())
-    evaluate()
     print("Training completed. Exiting.")
-

@@ -33,7 +33,6 @@ class SetGenerator(nn.Module):
         self.learn_from_latent = cfg.learn_from_latent
 
         self.n_distribution = cfg.n_distribution
-        self.max_n = cfg.max_n
         self.extrapolation_n = cfg.extrapolation_n
         self.dataset_max_n = cfg.dataset_max_n
         self.dummy_param = nn.Parameter(torch.empty(0))     # Used to store the device
@@ -87,7 +86,7 @@ class RandomSetGenerator(SetGenerator):
 class FirstKSetGenerator(SetGenerator):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.points = nn.Parameter(torch.randn(cfg.max_n, cfg.set_channels).float())
+        self.points = nn.Parameter(torch.randn(cfg.dataset_max_n, cfg.set_channels).float())
 
     def forward(self, latent: Tensor, n: int = None, extrapolation=False):
         batch_size = latent.shape[0]
@@ -102,9 +101,9 @@ class TopNSetGenerator(SetGenerator):
         super().__init__(cfg)
         self.set_channels = cfg.set_channels
         self.cosine_channels = cfg.cosine_channels
-        self.points = nn.Parameter(torch.randn(cfg.max_n, cfg.set_channels).float())
+        self.points = nn.Parameter(torch.randn(cfg.dataset_max_n, cfg.set_channels).float())
 
-        angles = torch.randn(cfg.max_n, cfg.cosine_channels).float()
+        angles = torch.randn(cfg.dataset_max_n, cfg.cosine_channels).float()
         angles = angles / (torch.norm(angles, dim=1)[:, None] + 1e-5)
         self.angles_params = nn.Parameter(angles)
 

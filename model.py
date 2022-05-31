@@ -104,7 +104,7 @@ class CustomDecoder(nn.Module):
             if self.use_bn:
                 self.bn_layers.append(nn.BatchNorm1d(hidden))
 
-        self.final_mlp = MLP(hidden, 136, hidden_final, cfg.final_mlp_layers)
+        self.final_mlp = MLP(hidden, cfg.max_n, hidden_final, cfg.final_mlp_layers)
 
     def forward(self, x, latent):
         """ x: batch_size, n, channels
@@ -170,5 +170,3 @@ class SetTransformerVae(nn.Module):
         std = torch.exp(0.5 * log_var)
         z = mu + torch.randn_like(std) * std
         return z
-
-

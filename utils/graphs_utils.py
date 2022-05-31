@@ -67,7 +67,7 @@ def load_data(dataset_name):
         dataset_indicator_path = 'data/IMDB-BINARY/IMDB-BINARY_graph_indicator.txt'
     elif dataset_name == "imdb-multi":
         dataset_A_path = 'data/IMDB-MULTI/IMDB-MULTI_A.txt'
-        dataset_indicator_path = 'data/MULTI-BINARY/IMDB-MULTI_graph_indicator.txt'
+        dataset_indicator_path = 'data/IMDB-MULTI/IMDB-MULTI_graph_indicator.txt'
     elif dataset_name == "collab":
         dataset_A_path = 'data/COLLAB/COLLAB_A.txt'
         dataset_indicator_path = 'data/COLLAB/COLLAB_graph_indicator.txt' 
@@ -118,10 +118,12 @@ def standardize_graphs(all_graphs, max_size=-1):
     lengths = [g.shape[0] for g in all_graphs]
     argsort = np.argsort(lengths)
     all_graphs = [all_graphs[i] for i in argsort]
-    
+
+
+    dataset_max_graph_size = all_graphs[-1].shape[0]
     # Standardizing size of graphs
-    if max_size == -1:
-        max_size = all_graphs[-1].shape[0]
+    if max_size < dataset_max_graph_size:
+        max_size = dataset_max_graph_size
     else:
         max_size = max_size 
 
@@ -152,14 +154,22 @@ def get_standardized_graphs(dataset, config):
         train_graphs, test_graphs = split_dataset(all_graphs, config)
         # TODO: Ugly passing max_size of graph between train and test, problem - what if test has max_size matrix
         train_standarized_graphs, max_size = standardize_graphs(train_graphs)
-        test_standarized_graphs, _ = standardize_graphs(test_graphs, max_size)
+        test_standarized_graphs, max_size = standardize_graphs(test_graphs, max_size)
         np.save(path + '_train.npy', train_standarized_graphs, allow_pickle=True)  
         np.save(path + '_test.npy', test_standarized_graphs, allow_pickle=True)
     else:
         train_standarized_graphs = np.load(path + '_train.npy')
         test_standarized_graphs = np.load(path + '_test.npy')
-    return train_standarized_graphs, test_standarized_graphs
+    return train_standarized_graphs, test_standarized_graphs, max_size
 
+def normalize_output_graph(graph):
+    graph = graph.numpy()
+    mean = np.mean(graph)
+    std = np.std(graph)
+    graph[graph <= (mean)] = 0
+    graph[graph != 0] = 1 
+    return graph
 
 if __name__ == "__main__":
     generate_all_datasets_graphs()
+    

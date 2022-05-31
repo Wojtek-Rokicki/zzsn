@@ -18,7 +18,7 @@ class EncoderConfig(object):
         encoder = config["Encoder"]
         glob = config["Global"]
 
-        self.in_dim = 136
+        self.in_dim = glob['dataset_max_n']
         self.initial_mlp_layers = encoder['initial_mlp_layers']
         self.hidden_initial = encoder['hidden_initial']
 
@@ -42,6 +42,7 @@ class DecoderConfig(object):
         decoder = config["Decoder"]
         glob = config["Global"]
 
+        self.max_n = glob['dataset_max_n']
         self.latent_dim = glob['latent_dim']
         self.cosine_channels = glob['cosine_channels'] if config['SetGenerator']['name'] == 'TopKGenerator' else 0
         self.set_channels = glob['set_channels']
@@ -68,7 +69,6 @@ class SetGeneratorConfig(object):
         self.set_channels = glob['set_channels']
         self.cosine_channels = glob['cosine_channels'] if set_gen['name'] == 'TopKGenerator' else 0
         self.learn_from_latent = set_gen['learn_from_latent']
-        self.max_n = set_gen['max_n']
         self.n_distribution = set_gen['n_distribution']
         self.num_mlp_layers = set_gen['num_mlp_layers']
         self.extrapolation_n = set_gen['extrapolation_n']
