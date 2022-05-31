@@ -1,13 +1,13 @@
 # Neural Nets Project - Graphs reconstruction with Top-N generator
 
 # TODO's:
-- [ ] Code to our problem adjustment
-- [ ] Create adjacency matrices from datasets
-- [ ] Batch data
-- [ ] Create pytorch objects i.e. dataloader etc.
-- [ ] Resolve conflicts by running on new dataset (25, 26 may)
-- [ ] Code refactorization
-- [ ] Measurements
+- [x] Code to our problem adjustment
+- [x] Create adjacency matrices from datasets
+- [x] Batch data
+- [x] Create pytorch objects i.e. dataloader etc.
+- [x] Resolve conflicts by running on new dataset
+- [x] Code refactorization
+- [x] Measurements
 
 # Remarks
 Original code by [cvignac](https://github.com/cvignac/Top-N)\
