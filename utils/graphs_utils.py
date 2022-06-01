@@ -152,7 +152,6 @@ def get_standardized_graphs(dataset, config):
     if not os.path.exists(path + '.npy'):
         all_graphs = read_dataset_graphs(dataset)
         train_graphs, test_graphs = split_dataset(all_graphs, config)
-        # TODO: Ugly passing max_size of graph between train and test, problem - what if test has max_size matrix
         train_standarized_graphs, max_size = standardize_graphs(train_graphs)
         test_standarized_graphs, max_size = standardize_graphs(test_graphs, max_size)
         np.save(path + '_train.npy', train_standarized_graphs, allow_pickle=True)  

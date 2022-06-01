@@ -116,8 +116,8 @@ class TopNSetGenerator(SetGenerator):
         self.lin2 = nn.Linear(1, cfg.set_channels)
 
     def forward(self, latent: Tensor, n: int = None, extrapolation=False):
-        """ latent: batch_size x d
-            self.points: max_points x d"""
+        """ latent: batch_size x latent_dim
+            self.points: n x n"""
         batch_size = latent.shape[0]
         n, predicted_n = super().forward(latent, n, extrapolation)
 

@@ -68,7 +68,7 @@ class CustomEncoder(nn.Module):
         self.final_mlp = MLP(aggregated_dim, 2 * self.latent_dim, cfg.hidden_final, cfg.final_mlp_layers)
 
     def forward(self, x):
-        """ x (Tensor): batch_size x n x in_channels. """
+        """ x (Tensor): batch_size x n x n. """
         x = F.relu(self.initial_mlp(x))
         if self.use_bn:
             x = self.bn_layers[0](x.transpose(1, 2)).transpose(1, 2)  # bs, n, hidden
@@ -107,8 +107,8 @@ class CustomDecoder(nn.Module):
         self.final_mlp = MLP(hidden, cfg.max_n, hidden_final, cfg.final_mlp_layers)
 
     def forward(self, x, latent):
-        """ x: batch_size, n, channels
-            latent: batch_size, channels2. """
+        """ x: batch_size, n, n
+            latent: batch_size, latent_dim. """
         x = F.relu(self.initial_mlp(x, latent.unsqueeze(1)))
 
         if self.use_bn:
@@ -133,9 +133,7 @@ class SetTransformerVae(nn.Module):
         self.normal = torch.distributions.normal.Normal(0.0, 1.0)
 
     def forward(self, x):
-        """ x: bs, n, channels.
-            atom_types: bs, n, num_atom_types
-            bond_types: bs, n, n, num_bond_types."""
+        """ x: bs, n, n"""
         n = x.shape[1]
         latent_mean, log_var = self.encoder(x)
         latent_vector = self.reparameterize(latent_mean, log_var)
@@ -150,9 +148,7 @@ class SetTransformerVae(nn.Module):
         return self.decoder(x, latent_vec)
 
     def reconstruct(self, x):
-        """ x: bs, n, channels.
-            atom_types: bs, n, num_atom_types
-            bond_types: bs, n, n, num_bond_types."""
+        """ x: bs, n, n """
         n = x.shape[1]
         latent_mean, log_var = self.encoder(x)
         x, predicted_n = self.set_generator(latent_mean, n)
@@ -167,6 +163,7 @@ class SetTransformerVae(nn.Module):
             mu: mean of the encoder's latent space
             log_var: log variance of the encoder's latent space
         """
-        std = torch.exp(0.5 * log_var)
+        # std = torch.exp(0.5 * log_var)
+        std = torch.pow(log_var, 2)
         z = mu + torch.randn_like(std) * std
         return z

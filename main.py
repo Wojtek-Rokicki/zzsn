@@ -82,16 +82,13 @@ def main():
 
     for i in range(args.runs):
 
-        # datasets = ["imdb-binary", "imdb-multi", "collab"]
-        datasets = ["imdb-binary"]
-        
+        datasets = ["imdb-binary", "imdb-multi", "collab"]
         for dataset in datasets:            
             train_standarized_graphs, test_standarized_graphs, max_size = get_standardized_graphs(dataset, data_config)
             train_dataloader, test_dataloader = prepare_dataloaders(train_standarized_graphs, test_standarized_graphs, data_config)
             
             config["Global"]['dataset_max_n'] = max_size
             config["Global"]['set_channels'] = max_size
-            config["Global"]['cosine_channels'] = 4
             config = Configuration(config)
             wandb.init(project="set_gen", config=wandb_config, name=f"{args.name}_{i}",
                    settings=wandb.Settings(_disable_stats=True), reinit=True,

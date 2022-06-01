@@ -11,8 +11,7 @@
 
 Global:
   latent_dim: 30
-  set_channels: 16
-  cosine_channels: 3
+  cosine_channels: 4
   lmbdas: [0.003, 0.000]      # KLdiv, predict_n
   n_eval: 1000    # Number of sets to generate at each evaluation
 
