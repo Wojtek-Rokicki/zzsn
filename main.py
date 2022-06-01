@@ -94,6 +94,7 @@ def main():
                    settings=wandb.Settings(_disable_stats=True), reinit=True,
                    mode='online' if args.wandb else 'disabled')
             wandb.config.update(args)
+            print(f'Dataset: {dataset}')
             train_test.train(args, config, data_config, train_dataloader, test_dataloader, wandb)
 
 
