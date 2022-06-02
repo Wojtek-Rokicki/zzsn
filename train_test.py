@@ -29,8 +29,6 @@ def train(args, config,dataset_config, train_loader, test_loader, wandb):
     # Define model, loss, optimizer
     model = SetTransformerVae(config).to(device)
     loss_fct = HungarianVAELoss(config.glob.lmbdas, config.set_generator_config.learn_from_latent) ## BSELoss
-    # loss_fct = nn.BCELoss()
-    # loss_fct = nn.MSELoss()
     optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, factor=args.factor, patience=args.patience, min_lr=1e-6)
     # wandb.watch(model, log_freq=100)
